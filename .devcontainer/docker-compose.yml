@@ -1,0 +1,19 @@
+version: '3.8'
+
+services: 
+  devcontainer-gooauth1:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/work:cached
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: sleep infinity
+    ports:
+      - "8080:8080"
+    networks:
+      - gooauth1
+
+networks:
+  gooauth1:
+    external: true

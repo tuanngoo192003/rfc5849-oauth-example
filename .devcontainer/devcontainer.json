@@ -1,0 +1,18 @@
+{
+  "name": "Go OAuth 1 Dev Container",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devcontainer-gooauth1",
+  "workspaceFolder": "/work",
+  "shutdownAction": "stopCompose",
+  "initializeCommand": "echo 'Running before container creation...'",
+  "postCreateCommand": "go version && git --version",
+  "features": {},
+  "customizations": {
+    "vscode": {
+        "extensions": [
+            "golang.go"
+        ]
+    }
+  },
+  "remoteUser": "root"
+}
