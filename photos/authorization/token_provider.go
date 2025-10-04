@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -19,24 +18,28 @@ func HandleToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		OAuthToken    string `json:"oauth_token"`
-		OAuthVerifier string `json:"oauth_verifier"`
-	}
-	json.NewDecoder(r.Body).Decode(&req)
+	r.ParseForm()
+	token := r.FormValue("oauth_token")
+	verifier := r.FormValue("oauth_verifier")
+
+	fmt.Printf("📥 [TOKEN] Token exchange request: %s, verifier: %s\n", token, verifier)
 
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
-	temp, exists := store.tempCredentials[req.OAuthToken]
+	temp, exists := store.tempCredentials[token]
 	if !exists || !temp.Authorized {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid or unauthorized token"})
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "oauth_problem=token_rejected")
+		fmt.Printf("[TOKEN] Invalid or unauthorized token: %s\n", token)
 		return
 	}
 
-	verifier, exists := store.authorizedCredentials[req.OAuthToken]
-	if !exists || verifier != req.OAuthVerifier {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid verifier"})
+	storedVerifier, exists := store.authorizedCredentials[token]
+	if !exists || storedVerifier != verifier {
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprintf(w, "oauth_problem=verifier_invalid")
+		fmt.Printf("[TOKEN] Invalid verifier\n")
 		return
 	}
 
@@ -51,13 +54,14 @@ func HandleToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clean up temporary credentials
-	delete(store.tempCredentials, req.OAuthToken)
-	delete(store.authorizedCredentials, req.OAuthToken)
+	delete(store.tempCredentials, token)
+	delete(store.authorizedCredentials, token)
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"oauth_token":        accessToken,
-		"oauth_token_secret": accessSecret,
-	})
+	fmt.Printf("✅ [TOKEN] Access token issued: %s for user: %s\n", accessToken, temp.Username)
+
+	// Return access token
+	w.Header().Set("Content-Type", "application/x-www-form-urlencoded")
+	fmt.Fprintf(w, "oauth_token=%s&oauth_token_secret=%s", accessToken, accessSecret)
 }
 
 func generateToken() string {

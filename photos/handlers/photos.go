@@ -2,35 +2,44 @@ package handlers
 
 import (
 	"encoding/json"
-	"go-oauth1/authorization"
+	"fmt"
+	"go-oauth1/photos/authorization"
 	"net/http"
-	"strings"
 )
 
 func HandlePhotos(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
+
+	fmt.Printf("[PHOTOS] Access request with auth: %s\n", authHeader)
+
 	if authHeader == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Unauthorized"})
 		return
 	}
 
 	// Extract token from "Bearer <token>"
-	parts := strings.Split(authHeader, " ")
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
+	var token string
+	if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+		token = authHeader[7:]
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid authorization header"})
 		return
 	}
-
-	token := parts[1]
 
 	authorization.GetStore().GetMu().RLock()
 	access, exists := authorization.GetStore().GetAccessToken()[token]
 	authorization.GetStore().GetMu().RUnlock()
 
 	if !exists {
-		http.Error(w, "Invalid access token", http.StatusUnauthorized)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid access token"})
+		fmt.Printf("[PHOTOS] Invalid access token: %s\n", token)
 		return
 	}
+
+	fmt.Printf("[PHOTOS] Access granted for user: %s\n", access.Username)
 
 	// Return Jane's vacation photos
 	photos := []map[string]interface{}{
@@ -52,8 +61,16 @@ func HandlePhotos(w http.ResponseWriter, r *http.Request) {
 			"url":   "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400",
 			"owner": access.Username,
 		},
+		{
+			"id":    "4",
+			"title": "Desert Dunes",
+			"url":   "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=400",
+			"owner": access.Username,
+		},
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"photos": photos,
 		"user":   access.Username,

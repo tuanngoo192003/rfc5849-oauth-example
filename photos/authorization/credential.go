@@ -53,3 +53,21 @@ var store = &OAuthStore{
 func GetStore() *OAuthStore {
 	return store
 }
+
+const (
+	clientKey    = "dpf43f3p2l4k3l03"
+	clientSecret = "kd94hf93k423kf44"
+)
+
+func GetClientKey() string {
+	return clientKey
+}
+
+func GetClientSecret() string {
+	return clientSecret
+}
+
+// Mock user database
+var users = map[string]string{
+	"jane": "password123",
+}
